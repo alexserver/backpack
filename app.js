@@ -1,41 +1,50 @@
-var express = require('express'),
-    util    = require('util'),
-    dot     = require('dot').process({ path: "./layouts"}),
-    fs      = require('fs'),
-    app     = null,
+var connect     = require('connect'),
+    router      = require('connect-route'),
+    handlebars  = require('handlebars'),
+    fs          = require('fs'),
+    path        = require('path'),
+    app         = null,
+    routes      = null,
 
     config  = {
-      layout: 'index.html',
-      dir: __dirname + '/templates',
+      layout      : path.join(__dirname,'/views/layouts/main.html'),
+      templates   : path.join(__dirname,'/views/templates'),
+      port        : 3000
     };
 
+var getTemplates = function() {
+  var templates     = [],
+      templateFiles = fs.readdirSync(config.templates);
 
-  // var templates = fs.readdirSync(config.dir),
-  //     data = {
-  //       templates: []
-  //     };
+  templates = templateFiles.map(function(e){
+    var str = fs.readFileSync(path.join(config.templates, e), {encoding: 'utf8'});
+    return {
+      "id": e.replace(/\.html$/, ''), //converts "demo.html" into "demo"
+      "content" : str
+    };
+  });
+  return templates;
+};
 
-  // templates.forEach(function(e){
-  //   if (e===config.layout) {
-  //     return;
-  //   }
-  //   var str = fs.readFileSync(config.dir + '/' + e, {encoding: 'utf8'}),
-  //       id = e.replace(/\.html$/, '');
-  //   data.templates.push({
-  //     "id": id,
-  //     "content": str
-  //   });
-  // });
+routes = router(function(r){
 
-  var result = dot.web({name: 'Alex', dt: (new Date()).toDateString(), str: 'hola'});
-console.log('hola');
-  app = express();
-  app.use(express.static(__dirname + '/public'));
-  app.use(app.router);
-
-  app.get("/", function(req, res) {
-    res.writeHead(200, {'Content-Type': 'text/html'});
-    res.end(result);
+  r.get('/', function(req, res, next){
+    var source, template, layout;
+    source = fs.readFileSync(config.layout, 'utf8');
+    template = handlebars.compile(source);
+    layout = template({
+      templates: getTemplates()
+    });
+    //server the layout.
+    res.end(layout);
   });
 
-  app.listen(3000);
+});
+
+app = connect();
+app
+    .use(connect.static('public/'))
+    .use(routes)
+    .listen(config.port);
+
+
